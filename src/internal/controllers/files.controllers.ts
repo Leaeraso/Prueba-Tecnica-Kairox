@@ -1,15 +1,29 @@
 import { Request, Response } from 'express'
 import File from '../models/files.models'
+import moment from 'moment'
+
+const parseDate = (dateString: string): Date => {
+  return moment(dateString, 'DD/MM/YYYY HH:mm:ss').toDate()
+}
 
 export const uploadFile = async (req: Request, res: Response) => {
   try {
     if (!req.file) {
-      return res.status(400).send('No file uploaded')
+      return res.status(400).send('no file uploaded')
     }
 
     const fileContent = req.file.buffer.toString('utf-8')
     const jsonData = convertTxtToJson(fileContent)
-  } catch (error) {}
+
+    const newFile = new File({ content: JSON.stringify(jsonData) })
+    await newFile.save()
+
+    res.status(201).json({ message: 'file uploaded and save' })
+  } catch (error) {
+    res
+      .status(500)
+      .send('error uploading the file: ' + (error as Error).message)
+  }
 }
 
 const convertTxtToJson = (txt: string) => {
@@ -21,8 +35,8 @@ const convertTxtToJson = (txt: string) => {
 
     const fields = line.split('|')
 
-    if (fields.length < 18) {
-      console.warn('the lines have the wrong formating', line)
+    if (fields.length < 17) {
+      console.warn('the lines have the wrong formatting', line)
       continue
     }
 
@@ -31,7 +45,7 @@ const convertTxtToJson = (txt: string) => {
       id_afiliado: fields[1].trim(),
       nombre: fields[2].trim(),
       archivo: {
-        fecha: fields[3].trim(),
+        fecha: parseDate(fields[3].trim()),
         tipo_pago: fields[4].trim(),
         desc_tipo_pago: fields[5].trim(),
         cod_tipo_cuota: fields[6].trim(),
@@ -48,5 +62,9 @@ const convertTxtToJson = (txt: string) => {
       cod_referencia: fields[15].trim(),
       cod_identificacion: fields[16].trim(),
     }
+
+    jsonResult.push(jsonObject)
   }
+
+  return jsonResult
 }
